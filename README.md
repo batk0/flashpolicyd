@@ -1,6 +1,6 @@
 # flashpolicyd
 
-## Version: 0.5
+## Version: 0.7
 
 ### Overview:
 
@@ -31,10 +31,13 @@ server.  The schema for the file is defined here:
 
    The standalone scripts can be run using the following command lines:
 
-    $ ./flashpolicyd.pl --file=../policyfile.xml --port=843
-    $ ./flashpolicyd.py --file=../policyfile.xml --port=843
+    $ ./flashpolicyd.pl --file=../policyfile.xml --port=843 --host=0.0.0.0
+    $ ./flashpolicyd.py --file=../policyfile.xml --port=843 --host=0.0.0.0
 
    Flags
+-    --host: An optional argument.  If it is not provided, then the
+scripts will default to 0.0.0.0
+
 -    --port: An optional argument.  If it is not provided, then the 
 scripts will default to port 843.
 

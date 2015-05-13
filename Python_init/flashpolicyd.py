@@ -17,23 +17,32 @@ import thread
 import exceptions
 import contextlib
 
-VERSION = 0.1
+VERSION = 0.7
 
 class policy_server(object):
-    def __init__(self, port, path):
+    def __init__(self, host, port, path):
+        self.host = host
         self.port = port
         self.path = path
         self.policy = self.read_policy(path)
-        self.log('Listening on port %d\n' % port)
+        self.log('Listening on %s:%d\n' % (self.host, self.port))
         try:
-            self.sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            self.sock = self.create_socket(self.host, self.port, socket.AF_INET6, socket.SOCK_STREAM)
         except AttributeError, socket.error:
             # AttributeError catches Python built without IPv6
             # socket.error catches OS with IPv6 disabled
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.sock = self.create_socket(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM)
+        except socket.gaierror:
+            # socket.gaierror catches getaddrinfo error
+            self.sock = self.create_socket(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind(('', port))
+        self.sock.bind(self.addr)
         self.sock.listen(5)
+        
+    def create_socket(self, host, port, family, socktype):
+        (_, _, _, _, self.addr) = socket.getaddrinfo(host, port, family, socktype)[0]
+        return socket.socket(family, socktype)
+        
     def read_policy(self, path):
         with file(path, 'rb') as f:
             policy = f.read(10001)
@@ -44,12 +53,14 @@ class policy_server(object):
                 raise exceptions.RuntimeError('Not a valid policy file',
                                               path)
             return policy
+            
     def run(self):
         try:
             while True:
                 thread.start_new_thread(self.handle, self.sock.accept())
         except socket.error, e:
             self.log('Error accepting connection: %s' % (e[1],))
+            
     def handle(self, conn, addr):
         addrstr = '%s:%s' % (addr[0],addr[1])
         try:
@@ -68,12 +79,15 @@ class policy_server(object):
             self.log('Error handling connection from %s: %s' % (addrstr, e[1]))
         except Exception, e:
             self.log('Error handling connection from %s: %s' % (addrstr, e[1]))
+            
     def log(self, str):
         print >>sys.stderr, str
 
 def main():
-    parser = optparse.OptionParser(usage = '%prog [--port=PORT] --file=FILE',
+    parser = optparse.OptionParser(usage = '%prog [--host=HOST] [--port=PORT] --file=FILE',
                                    version='%prog ' + str(VERSION))
+    parser.add_option('-H', '--host', dest='host', type=str, default='0.0.0.0',
+                      help='listen on host HOST', metavar='HOST')
     parser.add_option('-p', '--port', dest='port', type=int, default=843,
                       help='listen on port PORT', metavar='PORT')
     parser.add_option('-f', '--file', dest='path',
@@ -85,7 +99,7 @@ def main():
         parser.error('File must be specified. See help.')
 
     try:
-        policy_server(opts.port, opts.path).run()
+        policy_server(opts.host, opts.port, opts.path).run()
     except Exception, e:
         print >> sys.stderr, e
         sys.exit(1)

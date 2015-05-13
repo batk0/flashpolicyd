@@ -3,7 +3,7 @@
 # policyd.pl
 # Simple socket policy file server
 #
-# Usage: policyd.pl [-port=N] -file=FILE
+# Usage: policyd.pl [--host=H] [--port=N] --file=FILE
 # Logs to stdout
 #
 
@@ -11,7 +11,7 @@ use strict;
 use Socket;
 
 my $NULLBYTE = pack( 'c', 0 );
-
+my $host = INADDR_ANY;
 my $port = 843;
 my $filePath;
 my $content;
@@ -20,6 +20,10 @@ my $content;
 
 while ( my $arg = shift @ARGV )
 {
+    if ( $arg =~ m/^--host=(\S+)$/ )
+    {
+        $host = gethostbyname($1);
+    }
     if ( $arg =~ m/^--port=(\d+)$/ )
     {
         $port = $1;
@@ -32,7 +36,7 @@ while ( my $arg = shift @ARGV )
 
 unless ( $filePath )
 {
-    die "Usage: policyd.pl [--port=N] --file=FILE\n";
+    die "Usage: policyd.pl [--host=H] [--port=N] --file=FILE\n";
 }
 
 ### READ FILE
@@ -51,10 +55,10 @@ $content =~ m/cross-domain-policy/ or die "Not a valid policy file: '$filePath'\
 
 socket( LISTENSOCK, PF_INET, SOCK_STREAM, getprotobyname( 'tcp' ) ) or die "socket() error: $!";
 setsockopt( LISTENSOCK, SOL_SOCKET, SO_REUSEADDR, pack( 'l', 1 ) ) or die "setsockopt() error: $!";
-bind( LISTENSOCK, sockaddr_in( $port, INADDR_ANY ) ) or die "bind() error: $!";
+bind( LISTENSOCK, sockaddr_in( $port, $host ) ) or die "bind() error: $!";
 listen( LISTENSOCK, SOMAXCONN ) or die "listen() error: $!";
 
-print STDOUT "\nListening on port $port\n\n";
+printf STDOUT "\nListening on %s:%d\n\n", inet_ntoa($host), $port;
 
 ### HANDLE CONNECTIONS
 
